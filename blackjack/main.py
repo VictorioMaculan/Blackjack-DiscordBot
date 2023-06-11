@@ -56,7 +56,6 @@ async def on_message(message: discord.Message):
     
     # Help Command
     if message.content == f'{prefix} help':
-        print(bj.active_tables)
         msg = discord.Embed(title='**Commands:**', colour=discord.Colour.blurple())
         msg.description = '''
         ``bj help`` -> Shows the help menu
@@ -88,17 +87,17 @@ async def on_message(message: discord.Message):
     
     # Create_Table Command
     if message.content == f'{prefix} create_table':
-        new_table = bj.Table(channel=message.channel, master=message.author)
-        if not await ut.isChannelActive(message.channel):
-            bj.active_tables.append(new_table)
-            await new_table.show_table()
+        if await ut.isChannelActive(message.channel) or await ut.isPlayerActive(message.author):
+            await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
+                                description='A table is already active in this channel or you\'re already in a table!'))
             return
-        await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
-                            description='A Blackjack table is already active in this channel!'))
+        new_table = bj.Table(channel=message.channel, master=message.author)
+        bj.active_tables.append(new_table)
+        await new_table.show_table()
       
     
     # Delete_Table Command
-    if message.content == f'{prefix} delete_table':
+    if message.content == f'{prefix} delete_table': # TODO: Padronizar!
         async for table in bj.active_tables:
             if table.channel == message.channel and table.players[0] == message.author:
                 bj.active_tables.remove(table)
@@ -123,25 +122,53 @@ async def on_message(message: discord.Message):
         
         async for table in bj.active_tables:
             if table.channel == message.channel:
-                table.add_player(message.author)
+                await table.add_player(message.author)
                 await table.show_table()
+                return
     
     
     # Leave_Table Command
     if message.content == f'{prefix} leave_table':
         if not await ut.isPlayerActive(message.author) or not await ut.isChannelActive(message.channel):
             await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
-                        description='You\'re not in a table or there\'s no active table in this channel!'))
+                        description='You\'re not in a table!'))
             return
 
-        for table in bj.active_tables:
+        async for table in bj.active_tables:
             if table.channel == message.channel:
                 if table.players[0] == message.author:
                     await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
                         description='You\'re the table master, if you want to leave, delete the table!'))
                     return
-                table.remove_player(message.author)
+                await table.remove_player(message.author)
                 await table.show_table()
+                return
+            
+            
+    # Kick command
+    if message.content.startswith(f'{prefix} kick'):
+        if not ut.isChannelActive(message.channel):
+            return
+        try:
+            kicked_id = int(message.content.split()[2][2:][:-1])
+            
+            async for table in bj.active_tables:
+                if table.channel == message.channel:
+                    if message.author != table.players[0] or table.players[0].id == kicked_id:
+                        await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
+                            description='You don\'t have permision to do that!'))
+                        return
+                    async for player in table.players:
+                        if player.id == kicked_id:
+                            await table.remove_player(player)
+                            await message.channel.send(embed=discord.Embed(title='✅ Success', colour=discord.Colour.green(),
+                                description='The player got kicked from the table.'))
+                            return
+                    await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
+                            description='The player was not found in the table!'))
+        except IndexError:
+            await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
+                            description='Check if you typed everything write!'))
 
 if __name__ == '__main__':
     client.run('MTExNjcyODM1NTQ4NDYxMDU4MQ.GmLos7.tLufIQCaY649W7tKR89eZjpSkfnL1ShjmeU7ow')

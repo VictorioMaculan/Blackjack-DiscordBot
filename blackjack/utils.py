@@ -1,7 +1,6 @@
 import asyncio
+import asyncstdlib as a
 import blackjack as bj
-
-# TODO: Do theese in a async way
 
 
 class Alist(list):
@@ -23,3 +22,9 @@ async def isPlayerActive(player):
             return True
     return False
 
+
+async def findTableIndex(table_channel):
+    async for table in bj.active_tables:
+            if table.channel == table_channel:
+                return table
+    return None

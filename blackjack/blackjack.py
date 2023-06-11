@@ -4,23 +4,24 @@ import discord
 
 active_tables = ut.Alist()
 
+
 class Table():
-    def __init__(self, channel: discord.TextChannel, master: discord.User):
+    def __init__(self, channel: discord.TextChannel, master: discord.Member):
         self.id = randint(100, 999)
         self.channel = channel
         
-        self.players = [master]
+        self.players = ut.Alist([master])
         self.ingame = False
         
         
-    def add_player(self, player):
+    async def add_player(self, player):
         if not self.ingame:
-            self.players.append(player)
+            await self.players.append(player)
     
         
-    def remove_player(self, player):
+    async def remove_player(self, player):
         if not self.ingame:
-            self.players.remove(player)
+            await self.players.remove(player)
     
     
     def start_game(self):
@@ -29,10 +30,10 @@ class Table():
         
     async def show_table(self):
         msg = discord.Embed(title=f'**Blackjack Table N° {self.id}**',  colour=discord.Colour.gold(),
-                            description='* Blackjack! (Dealer)\n')
+                            description='* ``Blackjack! (Dealer)``\n')
         
-        for player in self.players:
-            msg.description += f'* {player.name} (Player)\n'
+        async for player in self.players:
+            msg.description += f'* ``{player.name} (Player)``\n'
         msg.set_footer(text='Made By: MestreDosPATUS')
         
         await self.channel.send(embed=msg)

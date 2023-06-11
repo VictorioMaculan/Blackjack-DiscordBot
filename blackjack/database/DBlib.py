@@ -1,5 +1,4 @@
 import aiosqlite
-from contextlib import closing
 
 DBpath = 'blackjack/database/BlackjackDB.db'
 

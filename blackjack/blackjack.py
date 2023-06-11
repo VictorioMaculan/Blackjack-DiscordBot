@@ -1,7 +1,8 @@
 from random import randint
+import utils as ut
 import discord
 
-active_tables = list()
+active_tables = ut.Alist()
 
 class Table():
     def __init__(self, channel: discord.TextChannel, master: discord.User):
@@ -10,11 +11,7 @@ class Table():
         
         self.players = [master]
         self.ingame = False
-    
-    
-    def __eq__(self, other):
-        return self.channel == other.channel
-    
+        
         
     def add_player(self, player):
         if not self.ingame:

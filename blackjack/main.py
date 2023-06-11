@@ -2,6 +2,7 @@ import discord
 import asyncstdlib as a
 import database.DBlib as db
 import blackjack as bj
+import utils as ut
 
 
 intents = discord.Intents().default()
@@ -43,7 +44,7 @@ async def on_guild_join(guild):
 
 
 @client.event
-async def on_message(message):
+async def on_message(message: discord.Message):
     if message.author == client.user:
         return
     if not message.content.startswith(prefix):
@@ -53,7 +54,9 @@ async def on_message(message):
         await db.registerUser(message.author.id, message.author.name)
 
     
+    # Help Command
     if message.content == f'{prefix} help':
+        print(bj.active_tables)
         msg = discord.Embed(title='**Commands:**', colour=discord.Colour.blurple())
         msg.description = '''
         ``bj help`` -> Shows the help menu
@@ -71,25 +74,74 @@ async def on_message(message):
         await message.channel.send(embed=msg)
     
     
+    # Ranking Command
     if message.content == f'{prefix} ranking':
         msg = discord.Embed(title='**Top 10 Most Wins 🫡**', description='', 
                             color=discord.Colour.green())
         
         async for i, player in a.enumerate(await db.getRanking(10)):
-            msg.description += f'``{i}°) {player[1]} ({player[2]} WINS)\n``' 
+            msg.description += f'``{i+1}°) {player[1]} ({player[2]} WINS)``\n' 
         msg.set_footer(text='Made By: MestreDosPATUS')
         
         await message.channel.send(embed=msg)
         
     
+    # Create_Table Command
     if message.content == f'{prefix} create_table':
         new_table = bj.Table(channel=message.channel, master=message.author)
-        if not new_table in bj.active_tables:
+        if not await ut.isChannelActive(message.channel):
             bj.active_tables.append(new_table)
             await new_table.show_table()
             return
         await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
                             description='A Blackjack table is already active in this channel!'))
+      
+    
+    # Delete_Table Command
+    if message.content == f'{prefix} delete_table':
+        async for table in bj.active_tables:
+            if table.channel == message.channel and table.players[0] == message.author:
+                bj.active_tables.remove(table)
+                await message.channel.send(embed=discord.Embed(title='✅ Success', colour=discord.Colour.green(),
+                        description='The table was deleted.'))
+                return
+        await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
+                        description='There is no active table in this channel or you\'re not the table master!'))
+      
+        
+    # Start_Table Command
+    if message.content == f'{prefix} start_table':
+        pass
+    
+    
+    # Join_Table Command
+    if message.content == f'{prefix} join_table':
+        if await ut.isPlayerActive(message.author) or not await ut.isChannelActive(message.channel):
+            await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
+                        description='You\'re already in a table or there\'s no active table in this channel!'))
+            return
+        
+        async for table in bj.active_tables:
+            if table.channel == message.channel:
+                table.add_player(message.author)
+                await table.show_table()
+    
+    
+    # Leave_Table Command
+    if message.content == f'{prefix} leave_table':
+        if not await ut.isPlayerActive(message.author) or not await ut.isChannelActive(message.channel):
+            await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
+                        description='You\'re not in a table or there\'s no active table in this channel!'))
+            return
+
+        for table in bj.active_tables:
+            if table.channel == message.channel:
+                if table.players[0] == message.author:
+                    await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
+                        description='You\'re the table master, if you want to leave, delete the table!'))
+                    return
+                table.remove_player(message.author)
+                await table.show_table()
 
 if __name__ == '__main__':
     client.run('MTExNjcyODM1NTQ4NDYxMDU4MQ.GmLos7.tLufIQCaY649W7tKR89eZjpSkfnL1ShjmeU7ow')

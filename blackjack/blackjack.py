@@ -1,8 +1,11 @@
-from random import randint
-import utils as ut
+from random import randint, choices
+import asyncstdlib as a
 import discord
+import os.path
+import utils as ut
 
 active_tables = ut.Alist()
+cards = ut.Alist()
 
 
 class Table():
@@ -11,8 +14,10 @@ class Table():
         self.channel = channel
         
         self.players = ut.Alist([master])
-        self.ingame = False
+        self.hand = None
         
+        self.ingame = False
+
         
     async def add_player(self, player):
         if not self.ingame:
@@ -38,3 +43,39 @@ class Table():
         
         await self.channel.send(embed=msg)
         
+
+class Hand():
+    def __init__(self):
+        self.hand = ut.Alist([Card('', 'Ace'), Card('', 'Ace')])
+        self.total = 0
+    
+    
+    async def eval_hand(self):
+        aces = 0
+        async for card in self.hand:
+            if card.value == 'Ace':
+                aces += 1
+                self.total += 11
+                continue
+            self.total += card.value
+        async for ace in ut.Alist(range(aces)):
+            if self.total <= 21:
+                break
+            self.total -= 10
+
+        
+class Card():
+    def __init__(self, image, value):
+        self.image = image
+        self.value = value
+                
+                
+for rep in os.listdir('blackjack/cards'):
+    for card in os.listdir(f'blackjack/cards/{rep}'):
+        if card.endswith('.png'):
+            value = card.split('_')[0]
+            if value in ['Jack', 'King', 'Queen']:
+                value = 10
+            elif value != 'Ace':
+                value = int(value)
+            cards.append(Card(image=card, value=value))

@@ -16,7 +16,8 @@ prefix = 'bj'
 
 @client.event
 async def on_ready():
-    print('\n\033[32mBlackjack is rolling!\033[m\n')
+    from time import strftime
+    print(f'\n\033[32m[{strftime("%x")} - {strftime("%X")}] Blackjack is rolling!\033[m\n')
 
 
 @client.event
@@ -147,7 +148,9 @@ async def on_message(message: discord.Message):
             
     # Kick command
     if message.content.startswith(f'{prefix} kick'):
-        if not ut.isChannelActive(message.channel):
+        if not await ut.isChannelActive(message.channel) or not await ut.isPlayerActive(message.author):
+            await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
+                            description='You\'re not in a table!'))
             return
         try:
             kicked_id = int(message.content.split()[2][2:][:-1])
@@ -166,9 +169,10 @@ async def on_message(message: discord.Message):
                             return
                     await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
                             description='The player was not found in the table!'))
-        except IndexError:
+        except (IndexError, ValueError):
             await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
-                            description='Check if you typed everything write!'))
+                            description='Check if you typed everything right!'))
+            
 
 if __name__ == '__main__':
     client.run('MTExNjcyODM1NTQ4NDYxMDU4MQ.GmLos7.tLufIQCaY649W7tKR89eZjpSkfnL1ShjmeU7ow')

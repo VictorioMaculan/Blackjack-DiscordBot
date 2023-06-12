@@ -28,3 +28,7 @@ async def findTableIndex(table_channel):
             if table.channel == table_channel:
                 return table
     return None
+
+
+def generateCards():
+    pass

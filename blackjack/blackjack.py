@@ -1,4 +1,4 @@
-from random import randint, choices
+from random import randint, choices, choice
 import asyncstdlib as a
 import discord
 import os.path
@@ -9,14 +9,24 @@ cards = ut.Alist()
 
 
 class Table():
-    def __init__(self, channel: discord.TextChannel, master: discord.Member):
+    def __init__(self, channel: discord.TextChannel, master: discord.Member | discord.User):
         self.id = randint(100, 999)
         self.channel = channel
         
-        self.players = ut.Alist([master])
-        self.hand = None
+        self.players = ut.Alist([Player(profile=master)])
+        self.deck = None
         
         self.ingame = False
+        
+        
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Table):
+            return self.channel == other.channel
+        elif isinstance(other, discord.TextChannel):
+            return self.channel == other
+        elif isinstance(other, (discord.Member, discord.User)):
+            return other in self.players
+        return self == other
 
         
     async def add_player(self, player):
@@ -29,16 +39,19 @@ class Table():
             await self.players.remove(player)
     
     
-    def start_game(self):
+    async def start_game(self):
         self.ingame = True
-    
+        self.deck = ut.Alist(cards)
+        async for player in self.players:
+            player.hand.draw_hand() # TODO: Verificar se precisar ser asincronico.
+        
         
     async def show_table(self):
         msg = discord.Embed(title=f'**Blackjack Table N° {self.id}**',  colour=discord.Colour.gold(),
                             description='* ``Blackjack! (Dealer)``\n')
         
         async for player in self.players:
-            msg.description += f'* ``{player.name} (Player)``\n'
+            msg.description += f'* ``{player.profile.name} (Player)``\n'
         msg.set_footer(text='Made By: MestreDosPATUS')
         
         await self.channel.send(embed=msg)
@@ -46,36 +59,60 @@ class Table():
 
 class Hand():
     def __init__(self):
-        self.hand = ut.Alist([Card('', 'Ace'), Card('', 'Ace')])
+        self.hand = ut.Alist()
         self.total = 0
     
     
     async def eval_hand(self):
         aces = 0
         async for card in self.hand:
-            if card.value == 'Ace':
+            if cards.value == 11:
                 aces += 1
-                self.total += 11
-                continue
             self.total += card.value
         async for ace in ut.Alist(range(aces)):
             if self.total <= 21:
                 break
             self.total -= 10
 
+
+    def draw_card(self, deck: ut.Alist | list):
+        card = choice(deck)
+        self.hand.append(card)
+        deck.remove(card)
+        self.eval_hand()
+        
+        
+    def draw_hand(self, deck: ut.Alist | list):
+        cards = choices(deck, k=2)
+        self.hand.extend(cards)
+        for card in cards:
+            deck.remove(card)
+        self.eval_hand()
+        
         
 class Card():
-    def __init__(self, image, value):
+    def __init__(self, image: str, value: str | int):
         self.image = image
         self.value = value
+        
+        
+class Player():
+    def __init__(self, profile: discord.Member | discord.User):
+        self.profile = profile
+        self.hand = Hand()
+    
+    
+    def __eq__(self, other:object) -> bool:
+        if isinstance(other, Player):
+            return self.profile == other.profile
+        elif isinstance(other, (discord.User, discord.Member)):
+            return self.profile == other
+        return self == other    
                 
                 
 for rep in os.listdir('blackjack/cards'):
     for card in os.listdir(f'blackjack/cards/{rep}'):
-        if card.endswith('.png'):
-            value = card.split('_')[0]
-            if value in ['Jack', 'King', 'Queen']:
-                value = 10
-            elif value != 'Ace':
-                value = int(value)
-            cards.append(Card(image=card, value=value))
+        if card.endswith('.png'): # TODO: Melhorar!
+            value = card.split('_')[0] if card.split('_')[0].upper() not in ['JACK', 'KING', 'QUEEN'] else '10'
+            value = int(value) if value.upper() != 'ACE' else 11
+            cards.append(Card(image=os.path.abspath(card), value=value))

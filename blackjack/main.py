@@ -102,6 +102,7 @@ async def on_message(message: discord.Message):
         async for table in bj.active_tables:
             if table.channel == message.channel and table.players[0] == message.author:
                 bj.active_tables.remove(table)
+                del table
                 await message.channel.send(embed=discord.Embed(title='✅ Success', colour=discord.Colour.green(),
                         description='The table was deleted.'))
                 return
@@ -111,7 +112,17 @@ async def on_message(message: discord.Message):
         
     # Start_Table Command
     if message.content == f'{prefix} start_table':
-        pass
+        if not await ut.isChannelActive(message.channel) or not await ut.isPlayerActive(message.author):
+            await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
+                            description='There is no active table in this channel or you\'re not in a table!'))
+            return
+        async for table in bj.active_tables:
+            if table.channel == message.channel:
+                if message.author == table.players[0]:
+                    await table.start_game()
+                    return
+                await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
+                            description='You don\'t have permision to do that!'))
     
     
     # Join_Table Command

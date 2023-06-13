@@ -10,18 +10,19 @@ class Alist(list):
 
 
 async def isChannelActive(channel):
-    async for table in bj.active_tables:
-        if table.channel == channel:
-            return True
-    return False
+    try:
+        bj.active_tables.index(channel)
+        return True
+    except ValueError:
+        return False
 
 
 async def isPlayerActive(player):
-    async for table in bj.active_tables:
-        if player in table.players:
-            return True
-    return False
-
+    try:
+        bj.active_tables.index(player)
+        return True
+    except ValueError:
+        return False
 
 async def findTableIndex(table_channel):
     async for table in bj.active_tables:

@@ -29,14 +29,14 @@ class Table():
         return self == other
 
         
-    async def add_player(self, player):
+    async def add_player(self, player: discord.Member | discord.User):
         if not self.ingame:
-            await self.players.append(player)
+            self.players.append(Player(player))
     
         
-    async def remove_player(self, player):
+    async def remove_player(self, player: discord.Member | discord.User):
         if not self.ingame:
-            await self.players.remove(player)
+            self.players.remove(player)
     
     
     async def start_game(self):
@@ -104,9 +104,11 @@ class Player():
     
     def __eq__(self, other:object) -> bool:
         if isinstance(other, Player):
-            return self.profile == other.profile
+            return self.profile.id == other.profile.id
         elif isinstance(other, (discord.User, discord.Member)):
             return self.profile == other
+        elif isinstance(other, int):
+            return self.profile.id == other
         return self == other    
                 
                 

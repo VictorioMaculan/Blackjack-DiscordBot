@@ -21,7 +21,7 @@ async def on_ready():
 
 
 @client.event
-async def on_user_update(before, after):
+async def on_user_update(before: discord.User, after: discord.User):
     if before.name != after.name:
         if await db.isRegistered(after.id, table='user'):
             import aiosqlite
@@ -89,100 +89,87 @@ async def on_message(message: discord.Message):
     # Create_Table Command
     if message.content == f'{prefix} create_table':
         if await ut.isChannelActive(message.channel) or await ut.isPlayerActive(message.author):
-            await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
-                                description='A table is already active in this channel or you\'re already in a table!'))
+            await ut.error_msg(message.channel, 'There is not an active table in this channel or you\'re already in a table')
             return
         new_table = bj.Table(channel=message.channel, master=message.author)
         bj.active_tables.append(new_table)
         await new_table.show_table()
+        del new_table
       
     
     # Delete_Table Command
-    if message.content == f'{prefix} delete_table': # TODO: Padronizar!
-        async for table in bj.active_tables:
-            if table.channel == message.channel and table.players[0] == message.author:
-                bj.active_tables.remove(table)
-                del table
-                await message.channel.send(embed=discord.Embed(title='✅ Success', colour=discord.Colour.green(),
-                        description='The table was deleted.'))
-                return
-        await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
-                        description='There is no active table in this channel or you\'re not the table master!'))
+    if message.content == f'{prefix} delete_table':
+        table = await ut.findTable(message.channel)
+        if table is None:
+            await ut.error_msg(message.channel, 'There\'s not an active table in this channel!')
+            return      
+    
+        if table.players[0] == message.author:
+            bj.active_tables.remove(table)
+            del table # TODO: Take a better look here
+            await ut.sucess_msg(message.channel, 'The table was deleted!')
+            return
+        await ut.error_msg(message.channel, 'You don\'t have permission to do that!')
       
         
     # Start_Table Command
     if message.content == f'{prefix} start_table':
-        if not await ut.isChannelActive(message.channel) or not await ut.isPlayerActive(message.author):
-            await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
-                            description='There is no active table in this channel or you\'re not in a table!'))
+        table = await ut.findTable(message.channel)
+        if table is None or not await ut.isPlayerActive(message.author):
+            await ut.error_msg(message.channel, 'There\'s not an active table in this channel or you\'re already in a table!')
             return
-        async for table in bj.active_tables:
-            if table.channel == message.channel:
-                if message.author == table.players[0]:
-                    await table.start_game()
-                    return
-                await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
-                            description='You don\'t have permision to do that!'))
+        
+        if table.players[0] == message.author:
+            await table.start_game()
+            return
+        await ut.error_msg(message.channel, 'You don\'t have permission to do that!')
     
     
     # Join_Table Command
     if message.content == f'{prefix} join_table':
-        if await ut.isPlayerActive(message.author) or not await ut.isChannelActive(message.channel):
-            await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
-                        description='You\'re already in a table or there\'s no active table in this channel!'))
+        table = await ut.findTable(message.channel)
+        if table is None or await ut.isPlayerActive(message.author):
+            await ut.error_msg(message.channel, 'There\'s not an active table in this channel or you\'re already in a table!')
             return
         
-        async for table in bj.active_tables:
-            if table.channel == message.channel:
-                await table.add_player(message.author)
-                await table.show_table()
-                return
-    
+        await table.add_player(message.author)
+        await table.show_table()
+
     
     # Leave_Table Command
     if message.content == f'{prefix} leave_table':
-        if not await ut.isPlayerActive(message.author) or not await ut.isChannelActive(message.channel):
-            await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
-                        description='You\'re not in a table!'))
+        table = await ut.findTable(message.channel)
+        if table is None or not await ut.isPlayerActive(message.author):
+            await ut.error_msg(message.channel, 'You\'re not in a table!')
             return
 
-        async for table in bj.active_tables:
-            if table.channel == message.channel:
-                if table.players[0] == message.author:
-                    await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
-                        description='You\'re the table master, if you want to leave, delete the table!'))
-                    return
-                await table.remove_player(message.author)
-                await table.show_table()
-                return
+        if table.players[0] == message.author:
+            await ut.error_msg(message.channel, 'The table master has to delete the table if he wants to leave!')
+            return
+        await table.remove_player(message.author)
+        await table.show_table()
             
             
     # Kick command
     if message.content.startswith(f'{prefix} kick'):
-        if not await ut.isChannelActive(message.channel) or not await ut.isPlayerActive(message.author):
-            await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
-                            description='You\'re not in a table!'))
+        table = await ut.findTable(message.channel)
+        if table is None or not await ut.isPlayerActive(message.author):
+            await ut.error_msg(message.channel, 'You\'re not in a table!')
             return
+        
         try:
-            kicked_id = int(message.content.split()[2][2:][:-1])
+            kicked_id = int(message.content.split()[2][2:][:-1])    
+            if table.players[0] != message.author or table.players[0] == kicked_id:
+                await ut.error_msg(message.channel, 'You don\'t have permision to do that!')
+                return
             
-            async for table in bj.active_tables:
-                if table.channel == message.channel:
-                    if message.author != table.players[0] or table.players[0].id == kicked_id:
-                        await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
-                            description='You don\'t have permision to do that!'))
-                        return
-                    async for player in table.players:
-                        if player.id == kicked_id:
-                            await table.remove_player(player)
-                            await message.channel.send(embed=discord.Embed(title='✅ Success', colour=discord.Colour.green(),
-                                description='The player got kicked from the table.'))
-                            return
-                    await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
-                            description='The player was not found in the table!'))
+            if kicked_id in table.players: # TODO: Take a better look here.
+                    await table.remove_player(kicked_id)
+                    await ut.sucess_msg(message.channel, 'The player got kicked from the table!')
+                    return
+            await ut.error_msg(message.channel, 'The player was not found!')
         except (IndexError, ValueError):
-            await message.channel.send(embed=discord.Embed(title='❌ Error', colour=discord.Colour.red(),
-                            description='Check if you typed everything right!'))
+            await ut.error_msg(message.channel, 'Check if you typed everything right!')
             
 
 if __name__ == '__main__':

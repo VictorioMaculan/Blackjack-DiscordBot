@@ -1,5 +1,4 @@
 import discord
-import asyncio
 import asyncstdlib as a
 import blackjack as bj
 
@@ -8,9 +7,9 @@ class Alist(list):
     async def __aiter__(self):
         for item in self:
             yield item
+            
 
-
-async def isChannelActive(channel: discord.TextChannel):
+def isChannelActive(channel: discord.TextChannel):
     try:
         bj.active_tables.index(channel)
         return True
@@ -18,7 +17,7 @@ async def isChannelActive(channel: discord.TextChannel):
         return False
 
 
-async def isPlayerActive(player: discord.Member | discord.User):
+def isPlayerActive(player: discord.Member | discord.User):
     try:
         bj.active_tables.index(player)
         return True
@@ -27,7 +26,7 @@ async def isPlayerActive(player: discord.Member | discord.User):
 
 
 async def findTable(channel: discord.TextChannel):
-    if not await isChannelActive(channel):
+    if not isChannelActive(channel):
         return 
     async for table in bj.active_tables:
             if table == channel:
@@ -45,5 +44,19 @@ async def sucess_msg(channel: discord.TextChannel, description: str):
                     description=description))
 
 
-def generateCards():
-    pass
+def generateCards(cards: list, gap=4, Cwidth=40, Cheight=58):
+    from PIL import Image, ImageDraw
+    # Background
+    img = Image.new(mode='RGB', size=(len(cards)*(Cwidth+gap)+gap, Cheight+gap*2), color='#216b19')
+    pencil = ImageDraw.Draw(img)
+    pencil.rectangle(xy=(0, 0, img.width-1, img.height-1), outline='#00260a', width=3)
+    
+    # Putting the cards
+    for i, card in a.enumerate(cards):
+        img.paste(Image.open(card.image), box=(gap+(Cwidth+gap)*i, gap, Cwidth*(i+1)+(gap*(i+1)), gap+Cheight))
+    return img
+    
+    
+if __name__ == '__main__':
+    generateCards(bj.cards[0:3])
+    

@@ -88,7 +88,7 @@ async def on_message(message: discord.Message):
     
     # Create_Table Command
     if message.content == f'{prefix} create_table':
-        if await ut.isChannelActive(message.channel) or await ut.isPlayerActive(message.author):
+        if ut.isChannelActive(message.channel) or ut.isPlayerActive(message.author):
             await ut.error_msg(message.channel, 'There is not an active table in this channel or you\'re already in a table')
             return
         new_table = bj.Table(channel=message.channel, master=message.author)
@@ -100,6 +100,9 @@ async def on_message(message: discord.Message):
     # Delete_Table Command
     if message.content == f'{prefix} delete_table':
         table = await ut.findTable(message.channel)
+        if table.ingame:
+            return
+        
         if table is None:
             await ut.error_msg(message.channel, 'There\'s not an active table in this channel!')
             return      
@@ -115,10 +118,13 @@ async def on_message(message: discord.Message):
     # Start_Table Command
     if message.content == f'{prefix} start_table':
         table = await ut.findTable(message.channel)
-        if table is None or not await ut.isPlayerActive(message.author):
+        
+        if table is None or not ut.isPlayerActive(message.author):
             await ut.error_msg(message.channel, 'There\'s not an active table in this channel or you\'re already in a table!')
             return
         
+        if table.ingame:
+            return
         if table.players[0] == message.author:
             await table.start_game()
             return
@@ -128,7 +134,10 @@ async def on_message(message: discord.Message):
     # Join_Table Command
     if message.content == f'{prefix} join_table':
         table = await ut.findTable(message.channel)
-        if table is None or await ut.isPlayerActive(message.author):
+        if table.ingame:
+            return
+        
+        if table is None or ut.isPlayerActive(message.author):
             await ut.error_msg(message.channel, 'There\'s not an active table in this channel or you\'re already in a table!')
             return
         
@@ -139,7 +148,10 @@ async def on_message(message: discord.Message):
     # Leave_Table Command
     if message.content == f'{prefix} leave_table':
         table = await ut.findTable(message.channel)
-        if table is None or not await ut.isPlayerActive(message.author):
+        if table.ingame:
+            return
+        
+        if table is None or not ut.isPlayerActive(message.author):
             await ut.error_msg(message.channel, 'You\'re not in a table!')
             return
 
@@ -153,7 +165,10 @@ async def on_message(message: discord.Message):
     # Kick command
     if message.content.startswith(f'{prefix} kick'):
         table = await ut.findTable(message.channel)
-        if table is None or not await ut.isPlayerActive(message.author):
+        if table.ingame:
+            return
+        
+        if table is None or not ut.isPlayerActive(message.author):
             await ut.error_msg(message.channel, 'You\'re not in a table!')
             return
         

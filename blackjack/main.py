@@ -126,7 +126,7 @@ async def on_message(message: discord.Message):
         if table.ingame:
             return
         if table.players[0] == message.author:
-            await table.start_game()
+            await table.start_game(client)
             return
         await ut.error_msg(message.channel, 'You don\'t have permission to do that!')
     
@@ -173,7 +173,7 @@ async def on_message(message: discord.Message):
             return
         
         try:
-            kicked_id = int(message.content.split()[2][2:][:-1])    
+            kicked_id = int(message.content.split()[2][2:][:-1]) # TODO: Clean Content
             if table.players[0] != message.author or table.players[0] == kicked_id:
                 await ut.error_msg(message.channel, 'You don\'t have permision to do that!')
                 return

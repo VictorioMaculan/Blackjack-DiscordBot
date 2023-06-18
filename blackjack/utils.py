@@ -1,6 +1,7 @@
 import discord
 import asyncstdlib as a
 import blackjack as bj
+from PIL import Image, ImageDraw
 
 
 class Alist(list):
@@ -8,6 +9,15 @@ class Alist(list):
         for item in self:
             yield item
             
+
+def pil2discord(pil_image: Image, format='png'):
+    from io import BytesIO
+    with BytesIO() as bi:
+        pil_image.save(bi, format=format.upper())
+        bi.seek(0)
+        return discord.File(bi, filename=f'Image.{format.lower()}')
+        
+
 
 def isChannelActive(channel: discord.TextChannel):
     try:
@@ -45,14 +55,13 @@ async def sucess_msg(channel: discord.TextChannel, description: str):
 
 
 def generateCards(cards: list, gap=4, Cwidth=40, Cheight=58):
-    from PIL import Image, ImageDraw
     # Background
-    img = Image.new(mode='RGB', size=(len(cards)*(Cwidth+gap)+gap, Cheight+gap*2), color='#216b19')
+    img = Image.new(mode='RGBA', size=(len(cards)*(Cwidth+gap)+gap, Cheight+gap*2), color='#216b19')
     pencil = ImageDraw.Draw(img)
     pencil.rectangle(xy=(0, 0, img.width-1, img.height-1), outline='#00260a', width=3)
     
     # Putting the cards
-    for i, card in a.enumerate(cards):
+    for i, card in enumerate(cards):
         img.paste(Image.open(card.image), box=(gap+(Cwidth+gap)*i, gap, Cwidth*(i+1)+(gap*(i+1)), gap+Cheight))
     return img
     

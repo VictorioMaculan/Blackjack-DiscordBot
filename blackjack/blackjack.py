@@ -1,5 +1,6 @@
 from random import randint, choices, choice
 import asyncstdlib as a
+import asyncio
 import discord
 import os.path
 from time import time
@@ -39,17 +40,36 @@ class Table():
             self.players.remove(player)
     
     
-    async def start_game(self):
+    async def start_game(self, client): # TODO: Concertar e Melhorar
         self.ingame = True
         self.last_game = time()
         self.deck = ut.Alist(cards)
         
         dealer = Hand(player='Dealer')
-        dealer.draw_hand(self.deck)
-        dealer.show_hand(self.channel)
-        '''async for player in self.players:
-            player.hand.draw_hand()'''
+        dealer.hand.append(Card(image='blackjack/cards/back.png', value=None)) # Back of the Card
+        await dealer.draw_card(self.deck)
+        await dealer.show_hand(self.channel)
         
+        loosers = list()
+        winners = list()
+        while True:
+            if len(loosers) + len(winners) == len(self.players):
+                    break
+            async for player in self.players:
+                if player in loosers:
+                    continue
+                await asyncio.sleep(3)
+                await player.hand.draw_hand(self.deck)
+                await player.hand.show_turn(self.channel)
+                
+                def check(reaction, user):
+                    return reaction in ['🎯','🛑','💸','✂️'] and player == user # TODO: Fix
+                
+                try:
+                    reaction, user = await client.wait_for('reaction_add', timeout=30, check=check) # TODO: Take a look at this
+                    await self.channel.send('Teste1')
+                except asyncio.TimeoutError:
+                    await ut.error_msg(self.channel, f'{player.profile.name} took to long!')
         
     async def show_table(self):
         msg = discord.Embed(title=f'**Blackjack Table N° {randint(100, 999)}**',  colour=discord.Colour.gold(),
@@ -73,9 +93,9 @@ class Hand():
         aces = 0
         
         async for card in self.hand:
-            if card is None:
+            if card.value is None:
                 continue
-            if cards.value == 11:
+            if card.value == 11:
                 aces += 1
             self.total += card.value
             
@@ -85,31 +105,62 @@ class Hand():
             self.total -= 10
 
 
-    def draw_card(self, deck: ut.Alist | list):
+    # TODO: Verificar os comandos de Draw
+    async def draw_card(self, deck: ut.Alist | list):
         card = choice(deck)
         self.hand.append(card)
         deck.remove(card)
-        self.eval_hand()
+        await self.eval_hand()
         
         
-    def draw_hand(self, deck: ut.Alist | list):
-        cards = choices(deck, k=2) # TODO: fix
+    async def draw_hand(self, deck: ut.Alist | list):
+        cards = choices(list(deck), k=2) # TODO: fix
         self.hand.extend(cards)
         for card in cards:
             deck.remove(card)
-        self.eval_hand()
+        await self.eval_hand()
         
         
     async def show_hand(self, channel: discord.TextChannel):
         name = self.player if isinstance(self.player, str) else self.player.name
         cards_img = ut.generateCards(self.hand)
         
-        msg = discord.Embed(title=f'**{name}\'s Hand**',  colour=discord.Colour.green(),
-                            description=f'``Total = {self.total}``')
-        msg.set_footer('Made By: MestreDosPATUS')
-        
-        await channel.send(embed=msg, file=cards_img.tobytes())
+        msg = discord.Embed(title=f'**{name}\'s Hand:**',  colour=discord.Colour.dark_green(),
+                            description=f'``Total = {self.total if self.total != 21 else "Blackjack!"}``')
+        msg.set_footer(text='Made By: MestreDosPATUS')
+        await channel.send(embed=msg)
+        await channel.send(file=ut.pil2discord(cards_img))
 
+
+    async def show_turn(self, channel:discord.TextChannel): # TODO: Melhorar e deixar mais bonito
+        name = self.player if isinstance(self.player, str) else self.player.name
+        cards_img = ut.generateCards(self.hand)
+        
+        msg = discord.Embed(title=f'**{name}\'s Hand:**',  colour=discord.Colour.dark_green(),
+                            description=f'``Total = {self.total if self.total != 21 else "Blackjack!"}``')
+        msg.description += f'''
+        
+            **Your options:**
+            🎯 -> Hit
+            🛑 -> Stand'''
+        
+        if len(self.hand) == 2:
+            msg.description += '\n💸 -> Double Down'
+        
+        if len(self.hand) == 2 and self.hand[0].value == self.hand[1].value:
+            msg.description += '\n✂️ -> Split'
+        msg.set_footer(text='You have 30 seconds to choose what to do!')
+
+        menu = await channel.send(embed=msg)
+        await channel.send(file=ut.pil2discord(cards_img))
+        
+        await menu.add_reaction('🎯')
+        await menu.add_reaction('🛑')
+        if len(self.hand) == 2:
+            await menu.add_reaction('💸')
+        if len(self.hand) == 2 and self.hand[0].value == self.hand[1].value:
+            await menu.add_reaction('✂️')
+        
 
 class Card():
     def __init__(self, image: str, value: str | int):
@@ -135,16 +186,16 @@ class Player():
             
 # Generating a list with the cards
 for rep in os.listdir('blackjack/cards'):
-    if not os.path.isdir(rep):
+    if not os.path.isdir(f'blackjack/cards/{rep}'):
         continue
     for card in os.listdir(f'blackjack/cards/{rep}'):
         if card.endswith('.png'):
 
-            if card.split('_')[0].upper() in ['JACK', 'KING', 'QUEEN']:
+            if card.split('_')[0].upper() in ('JACK', 'KING', 'QUEEN'):
                 value = 10
             elif card.split('_')[0].upper() == 'ACE':
                 value = 11
             else:
                 value = int(card.split('_')[0])
 
-            cards.append(Card(image=os.path.abspath(f'blackjack/cards/{rep}/{card}'), value=value))
+            cards.append(Card(image=os.path.abspath(f'blackjack\\cards\\{rep}\\{card}'), value=value))

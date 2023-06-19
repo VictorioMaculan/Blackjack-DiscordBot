@@ -40,36 +40,57 @@ class Table():
             self.players.remove(player)
     
     
-    async def start_game(self, client): # TODO: Concertar e Melhorar
+    async def start_game(self, client: discord.Client): # TODO: Concertar e Melhorar e Olhar esse Client
         self.ingame = True
         self.last_game = time()
         self.deck = ut.Alist(cards)
         
         dealer = Hand(player='Dealer')
-        dealer.hand.append(Card(image='blackjack/cards/back.png', value=None)) # Back of the Card
-        await dealer.draw_card(self.deck)
+        dealer.hand.append(Card(image='blackjack/cards/back.png', value=None)) # Back of the Cards
+        await dealer.draw_cards(self.deck)
         await dealer.show_hand(self.channel)
         
-        loosers = list()
-        winners = list()
+        losers, winners = list(), list() # TODO: Melhorar.
+        game_round = 1
         while True:
-            if len(loosers) + len(winners) == len(self.players):
+            if len(losers) + len(winners) == len(self.players):
+                # Adicionar um resumo da partida
                     break
+                
             async for player in self.players:
-                if player in loosers:
+                if player in losers or player in winners:
                     continue
+                if game_round == 1:
+                    await player.hand.draw_cards(self.deck, amount=2)
+                
                 await asyncio.sleep(3)
-                await player.hand.draw_hand(self.deck)
-                await player.hand.show_turn(self.channel)
+                await player.hand.show_turn(self.channel, game_round)
                 
                 def check(reaction, user):
-                    return reaction in ['🎯','🛑','💸','✂️'] and player == user # TODO: Fix
+                    return reaction.emoji in ('🎯', '🛑', '💸', '✂️') and player.profile.id == user.id 
                 
                 try:
-                    reaction, user = await client.wait_for('reaction_add', timeout=30, check=check) # TODO: Take a look at this
-                    await self.channel.send('Teste1')
+                    reaction, user = await client.wait_for('reaction_add', timeout=30, check=check)
+                    
+                    
+                    if reaction.emoji == '🎯':
+                        await self.channel.send(f'{player.profile.name} chose **hit**!')
+                        await player.hand.draw_cards(self.deck)
+                        await player.hand.show_hand(self.channel)
+                    
+                    elif reaction.emoji == '🛑':
+                        await self.channel.send(f'{player.profile.name} chose **stand**!')
+                        await player.hand.show_hand(self.channel)
+                    
+                    elif reaction == '💸':
+                        pass
+                    
+                    elif reaction == '✂️':
+                        pass
+                        
                 except asyncio.TimeoutError:
-                    await ut.error_msg(self.channel, f'{player.profile.name} took to long!')
+                    await ut.error_msg(self.channel, f'{player.profile.name} took too long! Skipping his/her turn...')
+            game_round += 1
         
     async def show_table(self):
         msg = discord.Embed(title=f'**Blackjack Table N° {randint(100, 999)}**',  colour=discord.Colour.gold(),
@@ -105,16 +126,16 @@ class Hand():
             self.total -= 10
 
 
-    # TODO: Verificar os comandos de Draw
-    async def draw_card(self, deck: ut.Alist | list):
-        card = choice(deck)
-        self.hand.append(card)
-        deck.remove(card)
-        await self.eval_hand()
+    def canDouble(self, game_round):
+        return len(self.hand) == 2 and game_round == 1
+    
+    
+    def canSplit(self):
+        return self.hand[0].value == self.hand[1].value 
         
         
-    async def draw_hand(self, deck: ut.Alist | list):
-        cards = choices(list(deck), k=2) # TODO: fix
+    async def draw_cards(self, deck: list, amount=1): # TODO: Take a better look here
+        cards = choices(deck, k=amount)
         self.hand.extend(cards)
         for card in cards:
             deck.remove(card)
@@ -128,26 +149,24 @@ class Hand():
         msg = discord.Embed(title=f'**{name}\'s Hand:**',  colour=discord.Colour.dark_green(),
                             description=f'``Total = {self.total if self.total != 21 else "Blackjack!"}``')
         msg.set_footer(text='Made By: MestreDosPATUS')
+        
         await channel.send(embed=msg)
         await channel.send(file=ut.pil2discord(cards_img))
 
 
-    async def show_turn(self, channel:discord.TextChannel): # TODO: Melhorar e deixar mais bonito
+    async def show_turn(self, channel:discord.TextChannel, game_round: int): # TODO: Melhorar e deixar mais bonito
         name = self.player if isinstance(self.player, str) else self.player.name
         cards_img = ut.generateCards(self.hand)
-        
         msg = discord.Embed(title=f'**{name}\'s Hand:**',  colour=discord.Colour.dark_green(),
-                            description=f'``Total = {self.total if self.total != 21 else "Blackjack!"}``')
-        msg.description += f'''
-        
-            **Your options:**
-            🎯 -> Hit
-            🛑 -> Stand'''
-        
-        if len(self.hand) == 2:
+                            description=f'''``Total = {self.total if self.total != 21 else "Blackjack!"}``
+                            
+**Your options:**
+🎯 -> Hit
+🛑 -> Stand''')
+            
+        if self.canDouble(game_round):
             msg.description += '\n💸 -> Double Down'
-        
-        if len(self.hand) == 2 and self.hand[0].value == self.hand[1].value:
+        if self.canSplit():
             msg.description += '\n✂️ -> Split'
         msg.set_footer(text='You have 30 seconds to choose what to do!')
 
@@ -156,9 +175,9 @@ class Hand():
         
         await menu.add_reaction('🎯')
         await menu.add_reaction('🛑')
-        if len(self.hand) == 2:
+        if self.canDouble(game_round):
             await menu.add_reaction('💸')
-        if len(self.hand) == 2 and self.hand[0].value == self.hand[1].value:
+        if self.canSplit():
             await menu.add_reaction('✂️')
         
 
@@ -199,3 +218,4 @@ for rep in os.listdir('blackjack/cards'):
                 value = int(card.split('_')[0])
 
             cards.append(Card(image=os.path.abspath(f'blackjack\\cards\\{rep}\\{card}'), value=value))
+            # TODO: Olhar se as cartas estão com as fotos corretas.

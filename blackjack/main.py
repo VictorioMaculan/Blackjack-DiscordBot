@@ -165,20 +165,20 @@ async def on_message(message: discord.Message):
     # Kick command
     if message.content.startswith(f'{prefix} kick'):
         table = await ut.findTable(message.channel)
-        if table.ingame:
-            return
-        
         if table is None or not ut.isPlayerActive(message.author):
             await ut.error_msg(message.channel, 'You\'re not in a table!')
             return
+        if table.ingame:
+            return
+        
         
         try:
-            kicked_id = int(message.content.split()[2][2:][:-1]) # TODO: Clean Content
+            kicked_id = int(message.content.split()[2][2:][:-1])
             if table.players[0] != message.author or table.players[0] == kicked_id:
                 await ut.error_msg(message.channel, 'You don\'t have permision to do that!')
                 return
             
-            if kicked_id in table.players: # TODO: Take a better look here.
+            if kicked_id in table.players:
                     await table.remove_player(kicked_id)
                     await ut.sucess_msg(message.channel, 'The player got kicked from the table!')
                     return

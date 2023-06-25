@@ -54,7 +54,7 @@ async def sucess_msg(channel: discord.TextChannel, description: str):
                     description=description))
 
 
-def generateCards(cards: list, gap=4, Cwidth=40, Cheight=58):
+def generateCards(cards: list, gap=8, Cwidth=40, Cheight=58):
     # Background
     img = Image.new(mode='RGBA', size=(len(cards)*(Cwidth+gap)+gap, Cheight+gap*2), color='#216b19')
     pencil = ImageDraw.Draw(img)

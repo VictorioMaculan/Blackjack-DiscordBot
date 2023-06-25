@@ -189,3 +189,4 @@ async def on_message(message: discord.Message):
 
 if __name__ == '__main__':
     client.run('MTExNjcyODM1NTQ4NDYxMDU4MQ.GmLos7.tLufIQCaY649W7tKR89eZjpSkfnL1ShjmeU7ow')
+    

@@ -33,7 +33,7 @@ async def registerUser(id: str, name: str):
 
 async def getRanking(places=10):
     async with aiosqlite.connect(DBpath) as con:
-        async with con.execute('select * from user order by wins limit ?', (places,)) as cursor:
+        async with con.execute('select * from user order by wins desc limit ?', (places,)) as cursor:
             return await cursor.fetchall()
 
 

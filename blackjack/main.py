@@ -20,6 +20,7 @@ async def on_ready():
     print(f'\n\033[32m[{strftime("%x")} - {strftime("%X")}] Blackjack is rolling!\033[m\n')
 
 
+
 @client.event
 async def on_user_update(before: discord.User, after: discord.User):
     if before.name != after.name:
@@ -42,6 +43,8 @@ async def on_guild_join(guild):
                 await channel.send(embed=msg)
         except discord.Forbidden:
             continue
+        
+    
 
 
 @client.event

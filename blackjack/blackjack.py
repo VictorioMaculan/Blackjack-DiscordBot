@@ -54,8 +54,8 @@ class Table():
                 
         # Match
         async for round in ut.Alist(range(1, 3)):
-            # Checking if all players lost/blackjacked already
-            if all([(hand.total > 21 or hand.total == 21) for player in self.players for hand in player.hands]):
+            # Checking if all players lost already
+            if all([(hand.total > 21    ) for player in self.players for hand in player.hands]):
                 for player in self.players:
                     player.result = player.bet*-1
                 break
@@ -112,17 +112,22 @@ class Table():
                 player: Player
                 
                 # Player's Hands
-                async for hand_num, hand in a.enumerate(reversed(player.hands)): # TODO: Concertar isso.
-                    hand: Hand
+                hand_num = 1 # TODO: Fix
+                while True:
+                    hand_num -= 1
+                    if abs(hand_num) == len(player.hands): # Checking if there is any hand left
+                            break
                     
-                    if hand_num == 0: # First Hand Gets Two Cards
+                    hand: Hand = player.hands[hand_num]
+                    
+                    if hand_num == 0: # Main Hand Gets Two Cards
                         await asyncio.sleep(3)
                         await hand.draw_cards(self.deck, amount=2)
                     
                     if hand.total == 21: # Player got a Blackjack
                         await self.channel.send(embed=discord.Embed(title=f'**{player.profile.name} got a Blackjack!**',  colour=discord.Colour.dark_purple(),
                                 description=f'``Total = 21``'))
-                        continue
+                        continue # TODO: Fix
                     
                     # Specific Hand Action
                     try:
@@ -145,13 +150,10 @@ class Table():
                                 player.bet *= 2
                                 await hand.show_hand(self.channel)
                             
-                            if output[0].emoji == '✂️': #and hand.canSplit():
+                            if output[0].emoji == '✂️' and hand.canSplit():
                                 await self.channel.send(f'{player.profile.name} chose **split**!')
                                 await player.split_hand(hand_to_split=hand)
-                                for h in player.hands:
-                                    print(h)
-                                    for c in h.hand:
-                                        print(c)
+                                print(hand_num, f'-{len(player.hands)}-')
                                 break
                             
                             if hand.total == 21: # Player got a Blackjack
@@ -163,13 +165,17 @@ class Table():
                                 await self.channel.send(embed=discord.Embed(title=f'**{player.profile.name} lost!**',  colour=discord.Colour.dark_red(),
                                     description=f'``Total = {hand.total}``'))
                                 break
+                            
+                            if output[0].emoji == '💸': # Ending the turn because the player doubled
+                                break
+                        
                     except asyncio.TimeoutError:
                         await ut.error_msg(self.channel, f'{player.profile.name} took too long! Skipping his/her turn...')
             
         # Match Summary and "Win Points"
         msg = discord.Embed(title='Match Summary', colour=discord.Colour.gold(), description='')
         async for player in self.players:
-            msg.description += f'* **{player.profile.name} ({f"+{player.result}" if player.result > 0 else player.result})**'
+            msg.description += f'* **{player.profile.name} ({f"+{player.result}" if player.result > 0 else player.result} WINS)**'
             if player.result != 0:
                 await db.modifyWins(str(player.profile.id), player.result)
         await self.channel.send(embed=msg)
@@ -234,7 +240,6 @@ class Hand():
         for card in cards:
             deck.remove(card)
         await self.eval_hand()
-        print(cards) # Remove this later
         
         
     async def show_hand(self, channel: discord.TextChannel):
@@ -283,6 +288,7 @@ class Card():
         
     def __str__(self) -> str:
         return str(self.value)
+    
         
 class Player():
     def __init__(self, profile: discord.Member | discord.User):
@@ -290,7 +296,7 @@ class Player():
         self.hands = ut.Alist([Hand(player=profile)])
         
         self.bet = 1 # Initial Betting
-        self.result = 0 # The amount of points you won/lost in the match
+        self.result = 0 # The amount of points you won/lost in the last match
     
     def __eq__(self, other:object) -> bool:
         if isinstance(other, Player):
@@ -312,7 +318,7 @@ class Player():
         await hand2.eval_hand()
         
         self.hands.extend([hand1, hand2])
-        # TODO: Ver melhor maneira e acabar
+        self.hands.remove(hand_to_split)
     
     def newHand(self):
         self.hands.append(Hand(player=self.profile))

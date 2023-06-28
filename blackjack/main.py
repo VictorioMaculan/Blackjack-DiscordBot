@@ -1,5 +1,6 @@
 import discord
 import asyncstdlib as a
+from time import strftime, gmtime, time
 import database.DBlib as db
 import blackjack as bj
 import utils as ut
@@ -16,7 +17,6 @@ prefix = 'bj'
 
 @client.event
 async def on_ready():
-    from time import strftime
     print(f'\n\033[32m[{strftime("%x")} - {strftime("%X")}] Blackjack is rolling!\033[m\n')
 
 
@@ -52,6 +52,8 @@ async def on_message(message: discord.Message):
     if message.author == client.user:
         return
     if not message.content.startswith(prefix):
+        return
+    if message.author.bot:
         return
     
     if not await db.isRegistered(message.author.id, table='user'):
@@ -97,7 +99,6 @@ async def on_message(message: discord.Message):
         new_table = bj.Table(channel=message.channel, master=message.author)
         bj.active_tables.append(new_table)
         await new_table.show_table()
-        del new_table
       
     
     # Delete_Table Command
@@ -112,7 +113,6 @@ async def on_message(message: discord.Message):
     
         if table.players[0] == message.author:
             bj.active_tables.remove(table)
-            del table # TODO: Take a better look here
             await ut.sucess_msg(message.channel, 'The table was deleted!')
             return
         await ut.error_msg(message.channel, 'You don\'t have permission to do that!')

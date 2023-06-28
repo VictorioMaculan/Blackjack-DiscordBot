@@ -8,7 +8,15 @@ class Alist(list):
     async def __aiter__(self):
         for item in self:
             yield item
+   
     
+def allPlayersLost(players: Alist | list):
+    return all([(hand.total > 21) for player in players for hand in player.hands])
+
+
+def allPlayersBlackjacked(players: Alist | list):
+    return all([(hand.total == 21) for player in players for hand in player.hands])
+
 
 def pil2discord(pil_image: Image, format='png'):
     from io import BytesIO

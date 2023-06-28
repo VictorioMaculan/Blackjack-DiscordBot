@@ -1,4 +1,4 @@
-from random import randint, choices, shuffle
+from random import randint, choices
 import asyncstdlib as a
 import asyncio
 import discord
@@ -15,8 +15,7 @@ class Table():
         self.channel = channel
         self.players = ut.Alist([Player(master)])
         
-        self.created_at = time()
-        self.last_game = None
+        self.last_game = time()
         self.deck = None
         self.ingame = False
         
@@ -32,16 +31,23 @@ class Table():
 
         
     async def add_player(self, player: discord.Member | discord.User):
+        if len(self.players) >= 8:
+            await ut.error_msg(self.channel, 'The table is full!')
+            return
         if not self.ingame:
             self.players.append(Player(player))
+        
     
         
     async def remove_player(self, player: discord.Member | discord.User):
+        if len(self.players) >= 8:
+            await ut.error_msg(self.channel, 'The table is full!')
+            return
         if not self.ingame:
             self.players.remove(player)
     
     
-    async def start_game(self, client: discord.Client): # TODO: Concertar e Melhorar e Olhar esse Client
+    async def start_game(self, client: discord.Client):
         self.ingame = True
         self.last_game = time()
         self.deck = ut.Alist(cards)
@@ -54,10 +60,12 @@ class Table():
                 
         # Match
         async for round in ut.Alist(range(1, 3)):
-            # Checking if all players lost already
-            if all([(hand.total > 21    ) for player in self.players for hand in player.hands]):
-                for player in self.players:
+            # Checking if all players blackjacked/lost
+            if ut.allPlayersLost(self.players):
+                async for player in self.players:
                     player.result = player.bet*-1
+                break
+            if ut.allPlayersBlackjacked(self.players):
                 break
                         
             # Dealer's Turn
@@ -66,8 +74,9 @@ class Table():
                 dealer.hand.append(Card(image='blackjack/cards/back.png', value=None)) # Hidden Card
                 await dealer.show_hand(self.channel)
             else:
+                # Revealing the hidden card
                 dealer.hand.pop()
-                await dealer.draw_cards(self.deck) # Revealing the hidden card
+                await dealer.draw_cards(self.deck)
                 await dealer.show_hand(self.channel)
                 
                 while True:
@@ -101,7 +110,7 @@ class Table():
                         async for hand in player.hands:
                             if hand.total == dealer.total:
                                 break
-                            player.result += player.bet if hand.total > dealer.total else player.bet*-1
+                            player.result += player.bet if (hand.total > dealer.total and hand.total <= 21) else player.bet*-1
                     break
                 
             if round == 2: # Checking if the game is over
@@ -112,12 +121,8 @@ class Table():
                 player: Player
                 
                 # Player's Hands
-                hand_num = 1 # TODO: Fix
-                while True:
-                    hand_num -= 1
-                    if abs(hand_num) == len(player.hands): # Checking if there is any hand left
-                            break
-                    
+                hand_num = 0
+                while abs(hand_num) != len(self.players):
                     hand: Hand = player.hands[hand_num]
                     
                     if hand_num == 0: # Main Hand Gets Two Cards
@@ -127,12 +132,11 @@ class Table():
                     if hand.total == 21: # Player got a Blackjack
                         await self.channel.send(embed=discord.Embed(title=f'**{player.profile.name} got a Blackjack!**',  colour=discord.Colour.dark_purple(),
                                 description=f'``Total = 21``'))
-                        continue # TODO: Fix
+                        continue
                     
                     # Specific Hand Action
                     try:
                         while True:
-                            await self.channel.send(f'Hand{hand_num}')
                             await hand.show_turn(self.channel)
                             output = await client.wait_for('reaction_add', timeout=30, check=check)
                             
@@ -144,7 +148,7 @@ class Table():
                                 await self.channel.send(f'{player.profile.name} chose **stand**!')
                                 break
                             
-                            if output[0].emoji == '💸' and hand.canDouble(): # TODO: Fix
+                            if output[0].emoji == '💸' and hand.canDouble():
                                 await self.channel.send(f'{player.profile.name} chose **double**!')
                                 await hand.draw_cards(self.deck)
                                 player.bet *= 2
@@ -153,7 +157,6 @@ class Table():
                             if output[0].emoji == '✂️' and hand.canSplit():
                                 await self.channel.send(f'{player.profile.name} chose **split**!')
                                 await player.split_hand(hand_to_split=hand)
-                                print(hand_num, f'-{len(player.hands)}-')
                                 break
                             
                             if hand.total == 21: # Player got a Blackjack
@@ -168,14 +171,14 @@ class Table():
                             
                             if output[0].emoji == '💸': # Ending the turn because the player doubled
                                 break
-                        
                     except asyncio.TimeoutError:
                         await ut.error_msg(self.channel, f'{player.profile.name} took too long! Skipping his/her turn...')
-            
+                    hand_num -= 1
+                    
         # Match Summary and "Win Points"
         msg = discord.Embed(title='Match Summary', colour=discord.Colour.gold(), description='')
         async for player in self.players:
-            msg.description += f'* **{player.profile.name} ({f"+{player.result}" if player.result > 0 else player.result} WINS)**'
+            msg.description += f'* **{player.profile.name} ({f"+{player.result}" if player.result > 0 else player.result} WINS)**\n'
             if player.result != 0:
                 await db.modifyWins(str(player.profile.id), player.result)
         await self.channel.send(embed=msg)
@@ -184,7 +187,7 @@ class Table():
         await asyncio.sleep(3)
         async for player in self.players: # TODO: Simplify
             player.restartHands()
-            player.bet = 1 # Initial Betting 
+            player.bet = 1 # Initial Betting
             player.result = 0
         self.ingame = False
         self.deck = None

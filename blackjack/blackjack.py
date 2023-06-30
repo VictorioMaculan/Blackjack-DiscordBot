@@ -66,7 +66,9 @@ class Table():
                     player.result = player.bet*-1
                 break
             if ut.allPlayersBlackjacked(self.players):
-                break
+                async for player in self.players:
+                    player.result = player.bet
+                break    
                         
             # Dealer's Turn
             if round == 1:
@@ -185,10 +187,8 @@ class Table():
         
         # Restarting the table for a new match
         await asyncio.sleep(3)
-        async for player in self.players: # TODO: Simplify
-            player.restartHands()
-            player.bet = 1 # Initial Betting
-            player.result = 0
+        async for player in self.players:
+            player.prepare_player()
         self.ingame = False
         self.deck = None
         await self.show_table()
@@ -212,21 +212,17 @@ class Hand():
         self.total = 0
     
     
-    async def eval_hand(self): # TODO: Tirar de async e melhorar
-        aces = 0
+    def eval_hand(self):
         self.total = 0
         
-        async for card in self.hand:
+        for card in self.hand[:]:
             if card.value is None:
                 continue
             if card.value == 11:
-                aces += 1
+                if self.total + 11 > 21:
+                    self.total += 1
+                    continue
             self.total += card.value
-            
-        async for ace in ut.Alist(range(aces)):
-            if self.total <= 21:
-                break
-            self.total -= 10 
 
 
     def canDouble(self):
@@ -242,7 +238,7 @@ class Hand():
         self.hand.extend(cards)
         for card in cards:
             deck.remove(card)
-        await self.eval_hand()
+        self.eval_hand()
         
         
     async def show_hand(self, channel: discord.TextChannel):
@@ -296,10 +292,11 @@ class Card():
 class Player():
     def __init__(self, profile: discord.Member | discord.User):
         self.profile = profile
-        self.hands = ut.Alist([Hand(player=profile)])
+        self.hands = ut.Alist()
         
-        self.bet = 1 # Initial Betting
+        self.bet = 0
         self.result = 0 # The amount of points you won/lost in the last match
+        self.prepare_player()
     
     def __eq__(self, other:object) -> bool:
         if isinstance(other, Player):
@@ -311,26 +308,24 @@ class Player():
         return self == other    
     
     
+    async def prepare_player(self):
+        self.bet = 1 # Initial Betting Amount
+        self.result = 0
+        self.hands.clear()
+        self.hands.append(Hand(player=self.profile))
+    
+    
     async def split_hand(self, hand_to_split: Hand):
         hand1 = Hand(player=self.profile)
         hand2 = Hand(player=self.profile)
         
         hand1.hand.append(hand_to_split.hand[0])
+        hand1.eval_hand()
         hand2.hand.append(hand_to_split.hand[1])
-        await hand1.eval_hand()
-        await hand2.eval_hand()
+        hand2.eval_hand()
         
         self.hands.extend([hand1, hand2])
         self.hands.remove(hand_to_split)
-    
-    def newHand(self):
-        self.hands.append(Hand(player=self.profile))
-            
-            
-    def restartHands(self):
-        self.hands.clear()
-        self.newHand()
-        
             
 # Generating a list with the cards
 for rep in os.listdir('blackjack/cards'):

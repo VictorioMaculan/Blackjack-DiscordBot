@@ -1,11 +1,26 @@
 import discord
+import asyncio
+import threading
 import asyncstdlib as a
-from time import strftime, gmtime, time
+from time import strftime, time, sleep
 import database.DBlib as db
 import blackjack as bj
 import utils as ut
 
 
+# Handling Inactive Tables
+def check_tables_activity():
+    while True:
+        for table in bj.active_tables[:]:
+            if table.last_game+(60*10) > time(): # 10 Minutes
+                bj.active_tables.remove(table)
+        sleep(60) # Checking every one minute
+      
+      
+tableschecking_thread = threading.Thread(target=check_tables_activity)
+tableschecking_thread.start()
+
+# Bot
 intents = discord.Intents().default()
 intents.message_content = True
 intents.guilds = True
@@ -13,6 +28,7 @@ intents.members = True
 client = discord.Client(intents=intents)
 
 prefix = 'bj'
+
 
 
 @client.event

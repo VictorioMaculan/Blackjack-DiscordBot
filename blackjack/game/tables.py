@@ -16,10 +16,10 @@ active_tables = ut.Alist()
 # Handling Inactive Tables
 def check_tables_activity():
     while True:
-        for table in active_tables[:]:
-            if table.last_game+(60*10) > time(): # 10 Minutes
-                active_tables.remove(table)
         sleep(60) # Checking every one minute
+        for table in active_tables[:]:
+            if table.last_game+(60*10) < time(): # 10 Minutes
+                active_tables.remove(table)
 tablechecking_thread = threading.Thread(target=check_tables_activity)
 tablechecking_thread.start()
 
@@ -143,20 +143,18 @@ class Table():
             # Players' Turn
             async for player in self.players:
                 player: Player
+                player.hands[0].draw_cards(self.deck, amount=2) # The main hand gets two cards
                 
                 # Player's Hands
                 hand_num = 0
-                while abs(hand_num) != len(player.hands)+1:
+                while abs(hand_num) != len(player.hands):
                     hand: Hand = player.hands[hand_num]
                     
-                    if hand_num == 0: # Main Hand Gets Two Cards
-                        await asyncio.sleep(3)
-                        hand.draw_cards(self.deck, amount=2)
                     
                     if hand.total == 21: # Player got a Blackjack
                         await self.channel.send(embed=discord.Embed(title=f'**{player.profile.name} got a Blackjack!**',  colour=discord.Colour.dark_purple(),
                                 description=f'``Total = 21``'))
-                        continue
+                        break
                     
                     # Specific Hand Action
                     try:
@@ -198,7 +196,10 @@ class Table():
                                 break
                     except asyncio.TimeoutError:
                         await ut.error_msg(self.channel, f'{player.profile.name} took too long! Skipping his/her turn...')
-                    hand_num -= 1
+                        continue
+                    if output[0].emoji != '✂️': # The Split does not take a turn
+                        hand_num -= 1
+                    
                     
         # Match Summary and "Win Points"
         msg = discord.Embed(title='Match Summary', colour=discord.Colour.gold(), description='')

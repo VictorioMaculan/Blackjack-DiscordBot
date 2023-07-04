@@ -1,26 +1,11 @@
 import discord
-import asyncio
-import threading
 import asyncstdlib as a
-from time import strftime, time, sleep
+from time import strftime
 import database.DBlib as db
-import blackjack as bj
+from game.tables import active_tables
+from game.tables import Table
 import utils as ut
 
-
-# Handling Inactive Tables
-def check_tables_activity():
-    while True:
-        for table in bj.active_tables[:]:
-            if table.last_game+(60*10) > time(): # 10 Minutes
-                bj.active_tables.remove(table)
-        sleep(60) # Checking every one minute
-      
-      
-tableschecking_thread = threading.Thread(target=check_tables_activity)
-tableschecking_thread.start()
-
-# Bot
 intents = discord.Intents().default()
 intents.message_content = True
 intents.guilds = True
@@ -28,7 +13,6 @@ intents.members = True
 client = discord.Client(intents=intents)
 
 prefix = 'bj'
-
 
 
 @client.event
@@ -48,6 +32,7 @@ async def on_user_update(before: discord.User, after: discord.User):
                     await cursor.execute('update user set name = ? where id = ?', (after.name, before.id))
                     await con.commit()
                     
+                    
 @client.event
 async def on_guild_join(guild):
     for channel in guild.channels:
@@ -61,7 +46,6 @@ async def on_guild_join(guild):
             continue
         
     
-
 
 @client.event
 async def on_message(message: discord.Message):
@@ -112,8 +96,8 @@ async def on_message(message: discord.Message):
         if ut.isChannelActive(message.channel) or ut.isPlayerActive(message.author):
             await ut.error_msg(message.channel, 'There is not an active table in this channel or you\'re already in a table')
             return
-        new_table = bj.Table(channel=message.channel, master=message.author)
-        bj.active_tables.append(new_table)
+        new_table = Table(channel=message.channel, master=message.author)
+        active_tables.append(new_table)
         await new_table.show_table()
       
     
@@ -128,7 +112,7 @@ async def on_message(message: discord.Message):
             return      
     
         if table.players[0] == message.author:
-            bj.active_tables.remove(table)
+            active_tables.remove(table)
             await ut.sucess_msg(message.channel, 'The table was deleted!')
             return
         await ut.error_msg(message.channel, 'You don\'t have permission to do that!')

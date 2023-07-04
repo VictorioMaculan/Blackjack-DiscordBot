@@ -1,14 +1,29 @@
-from random import randint, choices
-import asyncstdlib as a
+from random import randint
 import asyncio
 import discord
-import os.path
 import database.DBlib as db
-from time import time
+from time import time, sleep
+import threading
 import utils as ut
 
+from .player import Player
+from .cards import Card, cards
+from .hand import Hand
+
 active_tables = ut.Alist()
-cards = ut.Alist()
+
+
+# Handling Inactive Tables
+def check_tables_activity():
+    while True:
+        for table in active_tables[:]:
+            if table.last_game+(60*10) > time(): # 10 Minutes
+                active_tables.remove(table)
+        sleep(60) # Checking every one minute
+tablechecking_thread = threading.Thread(target=check_tables_activity)
+tablechecking_thread.start()
+
+
 
 class Table():
     def __init__(self, channel: discord.TextChannel, master: discord.Member | discord.User):
@@ -29,6 +44,14 @@ class Table():
             return other in self.players
         return self == other
 
+
+    def allPlayersLost(self):
+        return all([(hand.total > 21) for player in self.players for hand in player.hands])
+
+
+    def allPlayersBlackjacked(self):
+        return all([(hand.total == 21) for player in self.players for hand in player.hands])
+     
         
     async def add_player(self, player: discord.Member | discord.User):
         if len(self.players) >= 8:
@@ -38,7 +61,6 @@ class Table():
             self.players.append(Player(player))
         
     
-        
     async def remove_player(self, player: discord.Member | discord.User):
         if len(self.players) >= 8:
             await ut.error_msg(self.channel, 'The table is full!')
@@ -61,24 +83,24 @@ class Table():
         # Match
         async for round in ut.Alist(range(1, 3)):
             # Checking if all players blackjacked/lost
-            if ut.allPlayersLost(self.players):
+            if self.allPlayersLost():
                 async for player in self.players:
                     player.result = player.bet*-1
                 break
-            if ut.allPlayersBlackjacked(self.players):
+            if self.allPlayersBlackjacked():
                 async for player in self.players:
                     player.result = player.bet
                 break    
                         
             # Dealer's Turn
             if round == 1:
-                await dealer.draw_cards(self.deck)
+                dealer.draw_cards(self.deck)
                 dealer.hand.append(Card(image='blackjack/cards/back.png', value=None)) # Hidden Card
                 await dealer.show_hand(self.channel)
             else:
                 # Revealing the hidden card
                 dealer.hand.pop()
-                await dealer.draw_cards(self.deck)
+                dealer.draw_cards(self.deck)
                 await dealer.show_hand(self.channel)
                 
                 while True:
@@ -86,7 +108,7 @@ class Table():
                     
                     if dealer.total <= 16: # Dealer hits
                         await self.channel.send(f'The dealer chose **hit**!')
-                        await dealer.draw_cards(self.deck)
+                        dealer.draw_cards(self.deck)
                         await dealer.show_hand(self.channel)
                         continue
                     
@@ -124,12 +146,12 @@ class Table():
                 
                 # Player's Hands
                 hand_num = 0
-                while abs(hand_num) != len(self.players):
+                while abs(hand_num) != len(player.hands)+1:
                     hand: Hand = player.hands[hand_num]
                     
                     if hand_num == 0: # Main Hand Gets Two Cards
                         await asyncio.sleep(3)
-                        await hand.draw_cards(self.deck, amount=2)
+                        hand.draw_cards(self.deck, amount=2)
                     
                     if hand.total == 21: # Player got a Blackjack
                         await self.channel.send(embed=discord.Embed(title=f'**{player.profile.name} got a Blackjack!**',  colour=discord.Colour.dark_purple(),
@@ -144,7 +166,7 @@ class Table():
                             
                             if output[0].emoji == '🎯':
                                 await self.channel.send(f'{player.profile.name} chose **hit**!')
-                                await hand.draw_cards(self.deck)
+                                hand.draw_cards(self.deck)
                             
                             if output[0].emoji == '🛑':
                                 await self.channel.send(f'{player.profile.name} chose **stand**!')
@@ -152,15 +174,16 @@ class Table():
                             
                             if output[0].emoji == '💸' and hand.canDouble():
                                 await self.channel.send(f'{player.profile.name} chose **double**!')
-                                await hand.draw_cards(self.deck)
+                                hand.draw_cards(self.deck)
                                 player.bet *= 2
                                 await hand.show_hand(self.channel)
                             
-                            if output[0].emoji == '✂️' and hand.canSplit():
+                            if output[0].emoji == '✂️':
                                 await self.channel.send(f'{player.profile.name} chose **split**!')
-                                await player.split_hand(hand_to_split=hand)
+                                player.split_hand(hand_to_split=hand)
                                 break
                             
+                            # Checking if something happened
                             if hand.total == 21: # Player got a Blackjack
                                 await self.channel.send(embed=discord.Embed(title=f'**{player.profile.name} got a Blackjack!**',  colour=discord.Colour.dark_purple(),
                                                     description=f'``Total = 21``'))
@@ -204,141 +227,3 @@ class Table():
         
         await self.channel.send(embed=msg)
         
-
-class Hand():
-    def __init__(self, player: discord.Member | discord.User | str):
-        self.player = player
-        self.hand = ut.Alist()
-        self.total = 0
-    
-    
-    def eval_hand(self):
-        self.total = 0
-        
-        for card in self.hand[:]:
-            if card.value is None:
-                continue
-            if card.value == 11:
-                if self.total + 11 > 21:
-                    self.total += 1
-                    continue
-            self.total += card.value
-
-
-    def canDouble(self):
-        return len(self.hand) == 2
-    
-    
-    def canSplit(self):
-        return len(self.hand) == 2 and self.hand[0].value == self.hand[1].value
-        
-        
-    async def draw_cards(self, deck: list, amount=1): # TODO: Take a better look here
-        cards = choices(deck, k=amount)
-        self.hand.extend(cards)
-        for card in cards:
-            deck.remove(card)
-        self.eval_hand()
-        
-        
-    async def show_hand(self, channel: discord.TextChannel):
-        name = self.player if isinstance(self.player, str) else self.player.name
-        cards_img = ut.generateCards(self.hand)
-        
-        msg = discord.Embed(title=f'**{name}\'s Hand:**',  colour=discord.Colour.dark_green(),
-                            description=f'``Total = {self.total}``')
-        msg.set_footer(text='Made By: MestreDosPATUS')
-        
-        await channel.send(embed=msg)
-        await channel.send(file=ut.pil2discord(cards_img))
-
-
-    async def show_turn(self, channel:discord.TextChannel):
-        name = self.player if isinstance(self.player, str) else self.player.name
-        cards_img = ut.generateCards(self.hand)
-        msg = discord.Embed(title=f'**{name}\'s Hand:**',  colour=discord.Colour.dark_green(),
-                            description=f'''``Total = {self.total}``
-                            
-                                            **Your options:**
-                                            🎯 -> Hit
-                                            🛑 -> Stand''')
-            
-        if self.canDouble():
-            msg.description += '\n 💸 -> Double Down'
-        if self.canSplit():
-            msg.description += '\n ✂️ -> Split'
-        msg.set_footer(text='You have 30 seconds to choose what to do!')
-
-        menu = await channel.send(embed=msg)
-        await channel.send(file=ut.pil2discord(cards_img))
-        
-        await menu.add_reaction('🎯')
-        await menu.add_reaction('🛑')
-        if self.canDouble():
-            await menu.add_reaction('💸')
-        if self.canSplit():
-            await menu.add_reaction('✂️')
-        
-
-class Card():
-    def __init__(self, image: str, value: str | int):
-        self.image = image
-        self.value = value
-        
-    def __str__(self) -> str:
-        return str(self.value)
-    
-        
-class Player():
-    def __init__(self, profile: discord.Member | discord.User):
-        self.profile = profile
-        self.hands = ut.Alist()
-        
-        self.bet = 0
-        self.result = 0 # The amount of points you won/lost in the last match
-        self.prepare_player()
-    
-    def __eq__(self, other:object) -> bool:
-        if isinstance(other, Player):
-            return self.profile.id == other.profile.id
-        elif isinstance(other, (discord.User, discord.Member)):
-            return self.profile == other
-        elif isinstance(other, int):
-            return self.profile.id == other
-        return self == other    
-    
-    
-    async def prepare_player(self):
-        self.bet = 1 # Initial Betting Amount
-        self.result = 0
-        self.hands.clear()
-        self.hands.append(Hand(player=self.profile))
-    
-    
-    async def split_hand(self, hand_to_split: Hand):
-        hand1 = Hand(player=self.profile)
-        hand2 = Hand(player=self.profile)
-        
-        hand1.hand.append(hand_to_split.hand[0])
-        hand1.eval_hand()
-        hand2.hand.append(hand_to_split.hand[1])
-        hand2.eval_hand()
-        
-        self.hands.extend([hand1, hand2])
-        self.hands.remove(hand_to_split)
-            
-# Generating a list with the cards
-for rep in os.listdir('blackjack/cards'):
-    if not os.path.isdir(f'blackjack/cards/{rep}'):
-        continue
-    for card in os.listdir(f'blackjack/cards/{rep}'):
-        if card.endswith('.png'):
-
-            if card.split('_')[0].upper() in ('JACK', 'KING', 'QUEEN'):
-                value = 10
-            elif card.split('_')[0].upper() == 'ACE':
-                value = 11
-            else:
-                value = int(card.split('_')[0])
-
-            cards.append(Card(image=os.path.abspath(f'blackjack\\cards\\{rep}\\{card}'), value=value))

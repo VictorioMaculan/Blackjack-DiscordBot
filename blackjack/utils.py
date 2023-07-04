@@ -1,7 +1,6 @@
 import discord
-import asyncstdlib as a
-import blackjack as bj
 from PIL import Image, ImageDraw
+import game.tables as tb
 
 
 class Alist(list):
@@ -9,27 +8,18 @@ class Alist(list):
         for item in self:
             yield item
    
-    
-def allPlayersLost(players: Alist | list):
-    return all([(hand.total > 21) for player in players for hand in player.hands])
-
-
-def allPlayersBlackjacked(players: Alist | list):
-    return all([(hand.total == 21) for player in players for hand in player.hands])
-
-
+   
 def pil2discord(pil_image: Image, format='png'):
     from io import BytesIO
     with BytesIO() as bi:
         pil_image.save(bi, format=format.upper())
         bi.seek(0)
-        return discord.File(bi, filename=f'Image.{format.lower()}')
-        
+        return discord.File(bi, filename=f'Image.{format.lower()}')        
 
 
 def isChannelActive(channel: discord.TextChannel):
     try:
-        bj.active_tables.index(channel)
+        tb.active_tables.index(channel)
         return True
     except ValueError:
         return False
@@ -37,7 +27,7 @@ def isChannelActive(channel: discord.TextChannel):
 
 def isPlayerActive(player: discord.Member | discord.User):
     try:
-        bj.active_tables.index(player)
+        tb.active_tables.index(player)
         return True
     except ValueError:
         return False
@@ -46,7 +36,7 @@ def isPlayerActive(player: discord.Member | discord.User):
 async def findTable(channel: discord.TextChannel):
     if not isChannelActive(channel):
         return 
-    async for table in bj.active_tables:
+    async for table in tb.active_tables:
             if table == channel:
                 return table
     return
@@ -72,8 +62,4 @@ def generateCards(cards: list, gap=8, Cwidth=40, Cheight=58):
     for i, card in enumerate(cards):
         img.paste(Image.open(card.image), box=(gap+(Cwidth+gap)*i, gap, Cwidth*(i+1)+(gap*(i+1)), gap+Cheight))
     return img
-    
-    
-if __name__ == '__main__':
-    generateCards(bj.cards[0:3])
-    
+        

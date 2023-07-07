@@ -13,12 +13,12 @@ from .hand import Hand
 active_tables = ut.Alist()
 
 
-# Handling Inactive Tables
+# Handling (Deleting) Inactive Tables
 def check_tables_activity():
     while True:
         sleep(60) # Checking every one minute
         for table in active_tables[:]:
-            if table.last_game+(60*10) < time(): # 10 Minutes
+            if table.last_game+(60*5) < time(): # 5 Minutes
                 active_tables.remove(table)
 tablechecking_thread = threading.Thread(target=check_tables_activity)
 tablechecking_thread.start()
@@ -83,15 +83,12 @@ class Table():
         # Match
         async for round in ut.Alist(range(1, 3)):
             # Checking if all players blackjacked/lost
-            if self.allPlayersLost():
+            all_players_lost = self.allPlayersLost()
+            if all_players_lost or self.allPlayersBlackjacked():
                 async for player in self.players:
-                    player.result = player.bet*-1
+                    player.result += sum([hand.bet for hand in player.hands]) * (-1 if all_players_lost else 1)
                 break
-            if self.allPlayersBlackjacked():
-                async for player in self.players:
-                    player.result = player.bet
-                break    
-                        
+            
             # Dealer's Turn
             if round == 1:
                 dealer.draw_cards(self.deck)
@@ -117,7 +114,7 @@ class Table():
                                 description=f'``Total = 21``'))
                         async for player in self.players:
                             async for hand in player.hands:
-                                player.result += 0 if hand.total == 21 else player.bet*-1
+                                player.result += hand.bet if hand.total == 21 else hand.bet*-1
                         break
                     
                     if dealer.total > 21: # Dealer lost (Game Ends)
@@ -125,7 +122,7 @@ class Table():
                                     description=f'``Total = {dealer.total}``'))
                         async for player in self.players:
                             async for hand in player.hands:
-                                player.result += player.bet if hand.total <= 21 else player.bet*-1
+                                player.result += hand.bet if hand.total <= 21 else hand.bet*-1
                         break
                     
                     # Dealer stops (Game Ends)
@@ -134,7 +131,7 @@ class Table():
                         async for hand in player.hands:
                             if hand.total == dealer.total:
                                 break
-                            player.result += player.bet if (hand.total > dealer.total and hand.total <= 21) else player.bet*-1
+                            player.result += hand.bet if (hand.total > dealer.total and hand.total <= 21) else hand.bet*-1
                     break
                 
             if round == 2: # Checking if the game is over
@@ -159,7 +156,7 @@ class Table():
                     # Specific Hand Action
                     try:
                         while True:
-                            await hand.show_turn(self.channel)
+                            await hand.show_turn(self.channel, hand_num=abs(hand_num)+1)
                             output = await client.wait_for('reaction_add', timeout=30, check=check)
                             
                             if output[0].emoji == '🎯':
@@ -173,10 +170,10 @@ class Table():
                             if output[0].emoji == '💸' and hand.canDouble():
                                 await self.channel.send(f'{player.profile.name} chose **double**!')
                                 hand.draw_cards(self.deck)
-                                player.bet *= 2
+                                hand.bet *= 2
                                 await hand.show_hand(self.channel)
-                            
-                            if output[0].emoji == '✂️':
+                                                    
+                            if output[0].emoji == '✂️' and hand.canSplit():
                                 await self.channel.send(f'{player.profile.name} chose **split**!')
                                 player.split_hand(hand_to_split=hand)
                                 break
@@ -197,14 +194,14 @@ class Table():
                     except asyncio.TimeoutError:
                         await ut.error_msg(self.channel, f'{player.profile.name} took too long! Skipping his/her turn...')
                         continue
-                    if output[0].emoji != '✂️': # The Split does not take a turn
+                    if output[0].emoji != '✂️': # The Split action does not take a turn
                         hand_num -= 1
                     
                     
         # Match Summary and "Win Points"
         msg = discord.Embed(title='Match Summary', colour=discord.Colour.gold(), description='')
         async for player in self.players:
-            msg.description += f'* **{player.profile.name} ({f"+{player.result}" if player.result > 0 else player.result} WINS)**\n'
+            msg.description += f'* **{player.profile.name} ({f"+{player.result}" if player.result >= 0 else player.result} WINS)**\n'
             if player.result != 0:
                 await db.modifyWins(str(player.profile.id), player.result)
         await self.channel.send(embed=msg)
@@ -224,7 +221,7 @@ class Table():
         
         async for player in self.players:
             msg.description += f'* ``{player.profile.name} (Player)``\n'
-        msg.set_footer(text='Made By: MestreDosPATUS')
+        msg.set_footer(text='Made By: Victório Maculan')
         
         await self.channel.send(embed=msg)
         

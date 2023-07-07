@@ -40,7 +40,7 @@ async def on_guild_join(guild):
             if isinstance(channel, discord.TextChannel):
                 msg = discord.Embed(title='**Hello, guild!**', colour=discord.Colour.blurple())
                 msg.description = "Hello! I'm a blackjack bot, to get started use: ``bj help``!"
-                msg.set_footer(text='Made By: MestreDosPATUS')
+                msg.set_footer(text='Made By: Victório Maculan')
                 await channel.send(embed=msg)
         except discord.Forbidden:
             continue
@@ -75,7 +75,7 @@ async def on_message(message: discord.Message):
 
         ``bj kick [Nickname]`` -> Kicks [Nickname] out of your table
         '''
-        msg.set_footer(text='Made By: MestreDosPATUS')
+        msg.set_footer(text='Made By: Victório Maculan')
         await message.channel.send(embed=msg)
     
     
@@ -86,7 +86,7 @@ async def on_message(message: discord.Message):
         
         async for i, player in a.enumerate(await db.getRanking(10)):
             msg.description += f'``{i+1}°) {player[1]} ({player[2]} WINS)``\n' 
-        msg.set_footer(text='Made By: MestreDosPATUS')
+        msg.set_footer(text='Made By: Victório Maculan')
         
         await message.channel.send(embed=msg)
         

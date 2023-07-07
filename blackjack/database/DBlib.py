@@ -40,13 +40,11 @@ async def getRanking(places=10):
 async def modifyWins(id: str, num: int):
     async with aiosqlite.connect(DBpath) as con:
         async with con.cursor() as cursor:
-            register = await getRegister(id, table="user")
-            if register is None or (register['wins'] == 0 and num < 0):
-                return
-            await cursor.execute(f'update user set wins = {register["wins"]+num} where id = ?', (id,))
+            await cursor.execute(f'update user set wins = wins + {num} where id = ?', (id,))
             await con.commit()
 
 
 if __name__ == '__main__':
     import asyncio
     asyncio.run(createDB())
+    

@@ -14,17 +14,18 @@ class Card():
     
 
 # Generating a list with the cards
-for rep in os.listdir('blackjack/cards'):
-    if not os.path.isdir(f'blackjack/cards/{rep}'):
+cards_dir = os.path.join('blackjack', 'cards')
+for rep in os.listdir(cards_dir):
+    rep_dir = os.path.join(cards_dir, rep)
+    if not os.path.isdir(rep_dir):
         continue
-    for card in os.listdir(f'blackjack/cards/{rep}'):
+    for card in os.listdir(rep_dir):
         if card.endswith('.png'):
-
-            if card.split('_')[0].upper() in ('JACK', 'KING', 'QUEEN'):
+            card_name = card.split('_')[0].upper()
+            if card_name in ('JACK', 'KING', 'QUEEN'):
                 value = 10
-            elif card.split('_')[0].upper() == 'ACE':
+            elif card_name == 'ACE':
                 value = 11
             else:
-                value = int(card.split('_')[0])
-
-            cards.append(Card(image=os.path.abspath(f'blackjack\\cards\\{rep}\\{card}'), value=value))
+                value = int(card_name)
+            cards.append(Card(image=os.path.abspath(os.path.join(rep_dir, card)), value=value))

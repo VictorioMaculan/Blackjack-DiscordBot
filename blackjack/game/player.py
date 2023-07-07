@@ -7,11 +7,9 @@ from .hand import Hand
 class Player():
     def __init__(self, profile: discord.Member | discord.User):
         self.profile = profile
-        self.hands = ut.Alist()
+        self.hands = ut.Alist([Hand(player=self.profile)])
         
-        self.bet = 0
         self.result = 0 # The amount of points you won/lost in the last match
-        self.prepare_player()
     
     def __eq__(self, other:object) -> bool:
         if isinstance(other, Player):
@@ -24,7 +22,6 @@ class Player():
     
     
     def prepare_player(self):
-        self.bet = 1 # Initial Betting Amount
         self.result = 0
         self.hands.clear()
         self.hands.append(Hand(player=self.profile))
@@ -41,3 +38,4 @@ class Player():
         
         self.hands.extend([hand1, hand2])
         self.hands.remove(hand_to_split)
+

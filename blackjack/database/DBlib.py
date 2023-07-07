@@ -1,8 +1,7 @@
 import aiosqlite
 import os
 
-Dbname = 'BlackjackDB.db'
-DBpath = os.path.join('blackjack', 'database', Dbname)
+DBpath = os.path.join('blackjack', 'database', 'BlackjackDB.db')
 
 
 async def createDB():
@@ -46,5 +45,7 @@ async def modifyWins(id: str, num: int):
             await con.commit()
 
 import asyncio
-if not os.path.isfile(Dbname):
-    asyncio.run(createDB())    
+from time import strftime
+if not os.path.isfile(DBpath):
+    asyncio.run(createDB())
+    print(f'\n\033[32m[{strftime("%x")} - {strftime("%X")}] The database was created!\033[m\n')

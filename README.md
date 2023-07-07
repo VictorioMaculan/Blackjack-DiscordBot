@@ -3,7 +3,11 @@
 
 This is my first time using ``Asyncio`` and ``Discord.py``, so if you want to report an error or want to give a suggestion, just make a issue!
 
-**To start the bot, just run the file named ``main.py``**
+**To use the bot you'll need to:**
+1. Create an application at the [Discord Developer Portal](discord.com/developers/applications) 
+2. Get it's token on the "Bot" menu.
+3. In the file named ``main.py``, replace "Your Token Here" with your token.
+4. Run ``main.py``
 
 ## 🐱‍💻 Bot Commands
 The bot uses the prefix ``bj`` for his commmands. You can also see a commands list using the command ``bj help`` in a discord text channel.
@@ -18,10 +22,10 @@ The list of commands is:
 * ``bj leave_table`` -> Leaves the current table.
 * ``bj kick [Nickname]`` -> Kicks [Nickname] out of your table
 
-A "table" is like a real-life blackjack table, you can add up to seven people to it, each player will receive their cards and have their turn. **You can only have one table per channel**.
+A "table" is like a real-life blackjack table, you can add up to seven people to it, each player will receive their cards and have their turn. **You can only have one table per channel, and it'll be deleted after 5 minutes of inactivity**.
 
 ## ⚠️ Disclaimer
-Gambling is not cool, you can get [addicted to it](https://en.wikipedia.org/wiki/Problem_gambling) or get in big trouble. Also, in some countries gambling is ilegal, that includes [Brazil](https://pt.wikipedia.org/wiki/Jogos_de_apostas_no_Brasil) (The country where I live in).
+Gambling is not cool, you can get [addicted to it](https://en.wikipedia.org/wiki/Problem_gambling) or get in big trouble. Also, in some countries gambling is ilegal, that includes [Brazil](https://pt.wikipedia.org/wiki/Jogos_de_apostas_no_Brasil) (The country that I live in).
 
 Thinking about all that, instead of implementing a betting system, I implemented a "Wins" system, so, everytime you win a Blackjack game, you receive a "Win Point". **The Split or Double action modify the amount of "Win Points" you receive.**
 

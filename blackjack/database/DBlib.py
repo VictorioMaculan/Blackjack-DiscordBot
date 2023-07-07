@@ -1,6 +1,8 @@
 import aiosqlite
+import os
 
-DBpath = 'blackjack/database/BlackjackDB.db'
+Dbname = 'BlackjackDB.db'
+DBpath = os.path.join('blackjack', 'database', Dbname)
 
 
 async def createDB():
@@ -43,8 +45,6 @@ async def modifyWins(id: str, num: int):
             await cursor.execute(f'update user set wins = wins + {num} where id = ?', (id,))
             await con.commit()
 
-
-if __name__ == '__main__':
-    import asyncio
-    asyncio.run(createDB())
-    
+import asyncio
+if not os.path.isfile(Dbname):
+    asyncio.run(createDB())    

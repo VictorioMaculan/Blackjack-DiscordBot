@@ -8,10 +8,10 @@ class Card():
     def __init__(self, image: str, value: str | int):
         self.image = image
         self.value = value
-        
+
     def __str__(self) -> str:
         return str(self.value)
-    
+
 
 # Generating a list with the cards
 cards_dir = os.path.join('blackjack', 'cards')
@@ -28,4 +28,5 @@ for rep in os.listdir(cards_dir):
                 value = 11
             else:
                 value = int(card_name)
-            cards.append(Card(image=os.path.abspath(os.path.join(rep_dir, card)), value=value))
+            cards.append(Card(image=os.path.abspath(
+                os.path.join(rep_dir, card)), value=value))

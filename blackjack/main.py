@@ -2,8 +2,7 @@ import discord
 import asyncstdlib as a
 from time import strftime
 import database.DBlib as db
-from game.tables import active_tables
-from game.tables import Table
+from game.tables import Table, active_tables
 import utils as ut
 
 intents = discord.Intents().default()
@@ -17,8 +16,8 @@ prefix = 'bj'
 
 @client.event
 async def on_ready():
-    print(f'\n\033[32m[{strftime("%x")} - {strftime("%X")}] Blackjack is rolling!\033[m\n')
-
+    print(
+        f'\n\033[32m[{strftime("%x")} - {strftime("%X")}] Blackjack is rolling!\033[m\n')
 
 
 @client.event
@@ -26,26 +25,26 @@ async def on_user_update(before: discord.User, after: discord.User):
     if before.name != after.name:
         if await db.isRegistered(after.id, table='user'):
             import aiosqlite
-            
+
             async with aiosqlite.connect(db.DBpath) as con:
                 async with con.cursor() as cursor:
                     await cursor.execute('update user set name = ? where id = ?', (after.name, before.id))
                     await con.commit()
-                    
-                    
+
+
 @client.event
 async def on_guild_join(guild):
     for channel in guild.channels:
         try:
             if isinstance(channel, discord.TextChannel):
-                msg = discord.Embed(title='**Hello, guild!**', colour=discord.Colour.blurple())
+                msg = discord.Embed(title='**Hello, guild!**',
+                                    colour=discord.Colour.blurple())
                 msg.description = "Hello! I'm a blackjack bot, to get started use: ``bj help``!"
                 msg.set_footer(text='Made By: Victório Maculan')
                 await channel.send(embed=msg)
         except discord.Forbidden:
             continue
-        
-    
+
 
 @client.event
 async def on_message(message: discord.Message):
@@ -55,14 +54,14 @@ async def on_message(message: discord.Message):
         return
     if message.author.bot:
         return
-    
+
     if not await db.isRegistered(message.author.id, table='user'):
         await db.registerUser(message.author.id, message.author.name)
 
-    
     # Help Command
     if message.content == f'{prefix} help':
-        msg = discord.Embed(title='**Commands:**', colour=discord.Colour.blurple())
+        msg = discord.Embed(title='**Commands:**',
+                            colour=discord.Colour.blurple())
         msg.description = '''
         ``bj help`` -> Shows the help menu
         ``bj ranking`` -> Shows the global rank
@@ -77,20 +76,18 @@ async def on_message(message: discord.Message):
         '''
         msg.set_footer(text='Made By: Victório Maculan')
         await message.channel.send(embed=msg)
-    
-    
+
     # Ranking Command
     if message.content == f'{prefix} ranking':
-        msg = discord.Embed(title='**Top 10 Most Wins 🫡**', description='', 
+        msg = discord.Embed(title='**Top 10 Most Wins 🫡**', description='',
                             color=discord.Colour.green())
-        
+
         async for i, player in a.enumerate(await db.getRanking(10)):
-            msg.description += f'``{i+1}°) {player[1]} ({player[2]} WINS)``\n' 
+            msg.description += f'``{i+1}°) {player[1]} ({player[2]} WINS)``\n'
         msg.set_footer(text='Made By: Victório Maculan')
-        
+
         await message.channel.send(embed=msg)
-        
-    
+
     # Create_Table Command
     if message.content == f'{prefix} create_table':
         if ut.isChannelActive(message.channel) or ut.isPlayerActive(message.author):
@@ -99,61 +96,57 @@ async def on_message(message: discord.Message):
         new_table = Table(channel=message.channel, master=message.author)
         active_tables.append(new_table)
         await new_table.show_table()
-      
-    
+
     # Delete_Table Command
     if message.content == f'{prefix} delete_table':
         table = await ut.findTable(message.channel)
         if table.ingame:
             return
-        
+
         if table is None:
             await ut.error_msg(message.channel, 'There\'s not an active table in this channel!')
-            return      
-    
+            return
+
         if table.players[0] == message.author:
             active_tables.remove(table)
             await ut.sucess_msg(message.channel, 'The table was deleted!')
             return
         await ut.error_msg(message.channel, 'You don\'t have permission to do that!')
-      
-        
+
     # Start_Table Command
     if message.content == f'{prefix} start_table':
         table = await ut.findTable(message.channel)
-        
+
         if table is None or not ut.isPlayerActive(message.author):
             await ut.error_msg(message.channel, 'There\'s not an active table in this channel or you\'re already in a table!')
             return
-        
+
         if table.ingame:
             return
         if table.players[0] == message.author:
             await table.start_game(client)
             return
         await ut.error_msg(message.channel, 'You don\'t have permission to do that!')
-    
-    
+
     # Join_Table Command
     if message.content == f'{prefix} join_table':
         table = await ut.findTable(message.channel)
         if table.ingame:
             return
-        
+
         if table is None or ut.isPlayerActive(message.author):
             await ut.error_msg(message.channel, 'There\'s not an active table in this channel or you\'re already in a table!')
             return
-        
+
         await table.add_player(message.author)
         await table.show_table()
 
-    
     # Leave_Table Command
     if message.content == f'{prefix} leave_table':
         table = await ut.findTable(message.channel)
         if table.ingame:
             return
-        
+
         if table is None or not ut.isPlayerActive(message.author):
             await ut.error_msg(message.channel, 'You\'re not in a table!')
             return
@@ -163,8 +156,7 @@ async def on_message(message: discord.Message):
             return
         await table.remove_player(message.author)
         await table.show_table()
-            
-            
+
     # Kick command
     if message.content.startswith(f'{prefix} kick'):
         table = await ut.findTable(message.channel)
@@ -173,23 +165,21 @@ async def on_message(message: discord.Message):
             return
         if table.ingame:
             return
-        
-        
+
         try:
             kicked_id = int(message.content.split()[2][2:][:-1])
             if table.players[0] != message.author or table.players[0] == kicked_id:
                 await ut.error_msg(message.channel, 'You don\'t have permision to do that!')
                 return
-            
+
             if kicked_id in table.players:
-                    await table.remove_player(kicked_id)
-                    await ut.sucess_msg(message.channel, 'The player got kicked from the table!')
-                    return
+                await table.remove_player(kicked_id)
+                await ut.sucess_msg(message.channel, 'The player got kicked from the table!')
+                return
             await ut.error_msg(message.channel, 'The player was not found!')
         except (IndexError, ValueError):
             await ut.error_msg(message.channel, 'Check if you typed everything right!')
-            
+
 
 if __name__ == '__main__':
     client.run('Your Token Here')
-    

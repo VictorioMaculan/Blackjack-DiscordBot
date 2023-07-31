@@ -4,7 +4,7 @@
 This is my first time using ``Asyncio`` and ``Discord.py``, so if you want to report an error or want to give a suggestion, just make a issue!
 
 **To use the bot you'll need to:**
-1. Create an application at the [Discord Developer Portal](discord.com/developers/applications) 
+1. Create an application at the Discord Developer Portal
 2. Get it's token on the "Bot" menu.
 3. In the file named ``main.py``, replace "Your Token Here" with your token.
 4. Run ``main.py``
